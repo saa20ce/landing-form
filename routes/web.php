@@ -18,6 +18,10 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+Route::get('/feedback1', function () {
+    return view('feedback');
+});
+
 Route::post('/feedback1', [FeedbackController::class, 'storeFeedback1']);
 Route::post('/feedback2', [FeedbackController::class, 'storeFeedback2']);
 

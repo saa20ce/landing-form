@@ -2,73 +2,57 @@
 
 namespace App\Http\Controllers;
 
-use App\Mail\FeedbackRecieved;
+use App\DTOs\FeedbackDTO;
+use App\Services\FeedbackService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Mail;
+use Illuminate\Validation\ValidationException;
+use Exception;
 
 class FeedbackController extends Controller
 {
+    private FeedbackService $feedbackService;
+
+    public function __construct(FeedbackService $feedbackService)
+    {
+        $this->feedbackService = $feedbackService;
+    }
     public function storeFeedback1(Request $request)
     {
-         // Валидация данных
-        $validateData = $request->validate([
-            'phone' => 'required|regex:/^\+7\(\d{3}\)-\d{3}-\d{4}$/',
-        ]);
-         // Запись данных в файл
-        $this->appendToFile('feedback1.txt', $validateData);
+        try{
+        $dto = new FeedbackDTO($request->all());
 
-        // Отправка уведомления на email администратора
-        $this->sendEmail($validateData);
-
-        // Ответ об успешном приеме заявки
+        $this->feedbackService->processFeedback(get_object_vars($dto), 'feedback1.txt');
+        
         return response()->json([
             'success' => true,
-            'message' => 'Заявка с формы 1 успешно отправлена'
+            'message' => 'Feedback form first successful send',
+            'phone' => $dto->phone
         ]);
+    } catch (ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error',
+            'errors' => $e->errors()
+        ], 400);
+    } catch (Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error',
+            'errors' => ['general' => $e->getMessage()]
+        ], 500);
+    }
     }
     public function storeFeedback2(Request $request)
     {
-         // Валидация данных
-        $validateData = $request->validate([
-            'name' => 'required|regex:/^[\pL\s]+$/u',
-            'phone' => 'required|regex:/^\+7\(\d{3}\)-\d{3}-\d{4}$/',
-        ]);
+        $dto = new FeedbackDTO($request->all());
 
-         // Запись данных в файл
-        $this->appendToFile('feedback2.txt', $validateData);
-
-        // Отправка уведомления на email администратора
-        $this->sendEmail($validateData);
+        $this->feedbackService->processFeedback(get_object_vars($dto), 'feedback2.txt');
 
         // Ответ об успешном приеме заявки
         return response()->json([
             'success' => true,
             'message' => 'Заявка с формы 2 успешно отправлена'
         ]);
-    }
-
-    // Файл с заявками, его имя и содержимое
-    private function appendToFile($filename, $data)
-    {
-        $content = '';
-
-        // Принимает ключ массива и значение элемента массива 
-        foreach ($data as $key => $value) {
-            $content .= ucfirst($key) . ': ' . $value . PHP_EOL;
-        }
-        
-        $content .= '----------' . PHP_EOL;
-
-        // В app/ в файл записывает содержимое   
-        File::append(storage_path($filename), $content);
-    }
-
-    // Содержимое заявки отправляется на почту админа
-    private function sendEmail($feedback)
-    {
-        $adminEmail = config('mail.admin_email');
-        Mail::to($adminEmail)->send(new FeedbackRecieved($feedback));
     }
 
 }
